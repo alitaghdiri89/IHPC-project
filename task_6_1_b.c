@@ -26,7 +26,7 @@ void init_matrix(struct matrix *a);
 void fill_matrix(struct matrix a);
 void print_matrix(struct matrix a);
 
-void multiply_matrices(struct matrix a, struct matrix b, struct matrix c);
+int multiply_matrices(struct matrix a, struct matrix b, struct matrix c);
 void multiply_single_blocks(double a_block[BLOCKSIZE][BLOCKSIZE],
 			    double b_block[BLOCKSIZE][BLOCKSIZE],
 			    double x_block[BLOCKSIZE][BLOCKSIZE]);
@@ -40,7 +40,7 @@ int main(){
 	init_matrix(&X);
 
 	double start = omp_get_wtime();
-	multiply_matrices(A, B, X);
+	int thread_count = multiply_matrices(A, B, X);
 	double end = omp_get_wtime();
 
 	printf("This is a matrix multiplication (squential code).\n");
@@ -48,6 +48,7 @@ int main(){
 	print_matrix(A);
 	printf("B=\n");
 	print_matrix(B);
+	printf("Number of threads: %d.\n", thread_count);
 	printf("AB=\n");
 	print_matrix(X);
 
@@ -80,11 +81,14 @@ void print_matrix(struct matrix a){
 	}
 }
 
-void multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
+int multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
 	double a_block[BLOCKSIZE][BLOCKSIZE],
 	       b_block[BLOCKSIZE][BLOCKSIZE],
 	       x_block[BLOCKSIZE][BLOCKSIZE];
+	int thread_count = MATRIXSIZE / BLOCKSIZE;
+	omp_set_num_threads(thread_count);
 
+	#pragma omp for collapse(2) private(a_block, b_block, x_block)
 	for (int i = 0; i < x.rows; i += BLOCKSIZE){
 		for (int j = 0; j < x.columns; j += BLOCKSIZE){
 			//initilalize x_block
@@ -107,11 +111,13 @@ void multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
 			// copying the x_block into x
 			for (int ib = 0; ib < BLOCKSIZE; ib++){
 				for (int jb = 0; jb < BLOCKSIZE; jb++){
+					#pragma omp atomic write
 					*(x.data + (i + ib) * x.columns + (j + jb)) = x_block[ib][jb];
 				}
 			}
 		}
 	}
+	return thread_count;
 }
 
 void multiply_single_blocks(double a_block[BLOCKSIZE][BLOCKSIZE],
