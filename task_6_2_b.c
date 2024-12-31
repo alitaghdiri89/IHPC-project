@@ -11,7 +11,9 @@ Group participants
 #include <omp.h>
 
 #define SEED 350
-#define MATRIXSIZE 10
+#define M 5
+#define N 10000
+#define P 1000
 #define BLOCKSIZE 5
 
 struct matrix{
@@ -20,9 +22,8 @@ struct matrix{
 	double *data;
 };
 
-void init_matrix(struct matrix *a);
+void init_matrix(struct matrix *a, int rows, int columns);
 void fill_matrix(struct matrix a);
-void print_matrix(struct matrix a);
 
 int multiply_matrices(struct matrix a, struct matrix b, struct matrix c);
 void multiply_single_blocks(double a_block[BLOCKSIZE][BLOCKSIZE],
@@ -31,34 +32,27 @@ void multiply_single_blocks(double a_block[BLOCKSIZE][BLOCKSIZE],
 
 int main(){
 	struct matrix A, B, X;
-	init_matrix(&A);
+	init_matrix(&A, N, M);
 	fill_matrix(A);
-	init_matrix(&B);
+	init_matrix(&B, M, P);
 	fill_matrix(B);
-	init_matrix(&X);
+	init_matrix(&X, N, P);
 
 	double start = omp_get_wtime();
 	int thread_count = multiply_matrices(A, B, X);
 	double end = omp_get_wtime();
 
-	printf("This is a matrix multiplication (squential code).\n");
-	printf("A=\n");
-	print_matrix(A);
-	printf("B=\n");
-	print_matrix(B);
 	printf("Number of threads: %d.\n", thread_count);
-	printf("AB=\n");
-	print_matrix(X);
 
 	printf("\nCalculation time: %f ms\n", (end - start) * 1000);
 
 	return 0;
 }
 
-void init_matrix(struct matrix *a){
-	a->rows = MATRIXSIZE;
-	a->columns = MATRIXSIZE;
-	a->data = malloc(MATRIXSIZE * MATRIXSIZE * sizeof(double));
+void init_matrix(struct matrix *a, int rows, int columns){
+	a->rows = rows;
+	a->columns = columns;
+	a->data = malloc(rows * columns * sizeof(double));
 }
 
 void fill_matrix(struct matrix a){
@@ -69,48 +63,42 @@ void fill_matrix(struct matrix a){
 	}
 }
 
-void print_matrix(struct matrix a){
-	for ( int i = 0; i < a.rows; i++){
-		printf("   ");
-		for (int j = 0; j < a.columns; j++){
-			printf("%.2f ", *(a.data + i * a.columns + j));
-		}
-		printf("\n");
-	}
-}
 
 int multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
 	double a_block[BLOCKSIZE][BLOCKSIZE],
 	       b_block[BLOCKSIZE][BLOCKSIZE],
 	       x_block[BLOCKSIZE][BLOCKSIZE];
-	int thread_count = MATRIXSIZE / BLOCKSIZE;
-	omp_set_num_threads(thread_count);
-
-	#pragma omp for collapse(2) private(a_block, b_block, x_block)
-	for (int i = 0; i < x.rows; i += BLOCKSIZE){
-		for (int j = 0; j < x.columns; j += BLOCKSIZE){
-			//initilalize x_block
-			for (int ib = 0; ib < BLOCKSIZE; ib++){
-				for (int jb = 0; jb < BLOCKSIZE; jb++){
-					x_block[ib][jb] = 0;
-				}
-			}
-			// The main multiplication loop
-			for (int k = 0; k < a.columns; k += BLOCKSIZE){
-				//initilaizing a_block and b_block
+	int thread_count;
+	omp_set_num_threads(omp_get_max_threads());
+	#pragma omp parallel
+	{
+		thread_count = omp_get_num_threads();
+		#pragma omp for collapse(2) private(a_block, b_block, x_block)
+		for (int i = 0; i < x.rows; i += BLOCKSIZE){
+			for (int j = 0; j < x.columns; j += BLOCKSIZE){
+				//initilalize x_block
 				for (int ib = 0; ib < BLOCKSIZE; ib++){
 					for (int jb = 0; jb < BLOCKSIZE; jb++){
-						a_block[ib][jb] = *(a.data + (i + ib) * a.columns + (k + jb));
-						b_block[ib][jb] = *(b.data + (k + ib) * b.columns + (j + jb));
+						x_block[ib][jb] = 0;
 					}
 				}
-				multiply_single_blocks(a_block, b_block, x_block);
-			}
-			// copying the x_block into x
-			for (int ib = 0; ib < BLOCKSIZE; ib++){
-				for (int jb = 0; jb < BLOCKSIZE; jb++){
-					#pragma omp atomic write
-					*(x.data + (i + ib) * x.columns + (j + jb)) = x_block[ib][jb];
+				// The main multiplication loop
+				for (int k = 0; k < a.columns; k += BLOCKSIZE){
+					//initilaizing a_block and b_block
+					for (int ib = 0; ib < BLOCKSIZE; ib++){
+						for (int jb = 0; jb < BLOCKSIZE; jb++){
+							a_block[ib][jb] = *(a.data + (i + ib) * a.columns + (k + jb));
+							b_block[ib][jb] = *(b.data + (k + ib) * b.columns + (j + jb));
+						}
+					}
+					multiply_single_blocks(a_block, b_block, x_block);
+				}
+				// copying the x_block into x
+				for (int ib = 0; ib < BLOCKSIZE; ib++){
+					for (int jb = 0; jb < BLOCKSIZE; jb++){
+						#pragma omp atomic write
+						*(x.data + (i + ib) * x.columns + (j + jb)) = x_block[ib][jb];
+					}
 				}
 			}
 		}

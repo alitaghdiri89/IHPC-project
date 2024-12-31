@@ -20,7 +20,6 @@ struct matrix{
 	double *data;
 };
 
-enum boolean{NO, YES};
 
 void init_matrix(struct matrix *a);
 void fill_matrix(struct matrix a);
