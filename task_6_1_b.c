@@ -9,6 +9,7 @@ Group participants
 #include <stdio.h>
 #include <stdlib.h>
 #include <omp.h>
+#include <math.h>
 
 #define SEED 350
 #define MATRIXSIZE 10
@@ -41,7 +42,7 @@ int main(){
 	int thread_count = multiply_matrices(A, B, X);
 	double end = omp_get_wtime();
 
-	printf("This is a matrix multiplication (squential code).\n");
+	printf("This is a matrix multiplication (parallel code).\n");
 	printf("A=\n");
 	print_matrix(A);
 	printf("B=\n");
@@ -51,6 +52,10 @@ int main(){
 	print_matrix(X);
 
 	printf("\nCalculation time: %f ms\n", (end - start) * 1000);
+
+	free(A.data);
+	free(B.data);
+	free(X.data);
 
 	return 0;
 }
@@ -83,7 +88,7 @@ int multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
 	double a_block[BLOCKSIZE][BLOCKSIZE],
 	       b_block[BLOCKSIZE][BLOCKSIZE],
 	       x_block[BLOCKSIZE][BLOCKSIZE];
-	int thread_count = MATRIXSIZE / BLOCKSIZE;
+	int thread_count = pow(MATRIXSIZE / BLOCKSIZE, 2);
 	omp_set_num_threads(thread_count);
 
 	#pragma omp for collapse(2) private(a_block, b_block, x_block)

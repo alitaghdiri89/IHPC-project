@@ -46,6 +46,10 @@ int main(){
 
 	printf("\nCalculation time: %f ms\n", (end - start) * 1000);
 
+	free(A.data);
+	free(B.data);
+	free(X.data);
+
 	return 0;
 }
 
