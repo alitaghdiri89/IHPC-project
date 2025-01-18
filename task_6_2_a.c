@@ -2,7 +2,7 @@
 Group participants
 1) Aliakbar Taghdiri
 2) Bijaya Mandel
-3) Morteya Feizbakhsh
+3) Morteza Feizbakhsh
 4) Priyanka Mukeimpi Santhosh
 */
 
@@ -25,10 +25,7 @@ struct matrix{
 void init_matrix(struct matrix *a, int rows, int columns);
 void fill_matrix(struct matrix a);
 
-void multiply_matrices(struct matrix a, struct matrix b, struct matrix c);
-void multiply_single_blocks(double a_block[BLOCKSIZE][BLOCKSIZE],
-			    double b_block[BLOCKSIZE][BLOCKSIZE],
-			    double x_block[BLOCKSIZE][BLOCKSIZE]);
+void multiply_matrices(struct matrix a, struct matrix b, struct matrix x);
 
 int main(){
 	struct matrix A, B, X;
@@ -83,15 +80,30 @@ void multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
 				//initilaizing a_block and b_block
 				for (int ib = 0; ib < BLOCKSIZE; ib++){
 					for (int jb = 0; jb < BLOCKSIZE; jb++){
-						a_block[ib][jb] = *(a.data + (i + ib) * a.columns + (k + jb));
-						b_block[ib][jb] = *(b.data + (k + ib) * b.columns + (j + jb));
+						if (((i+ib) < a.rows) && ((k+jb) < a.columns)){
+							a_block[ib][jb] = *(a.data + (i + ib) * a.columns + (k + jb));
+						} else {
+							a_block[ib][jb] = 0;
+						}
+						if (((k+ib) < b.rows) && ((j+jb) < b.columns)){
+							b_block[ib][jb] = *(b.data + (k + ib) * b.columns + (j + jb));
+						} else {
+							b_block[ib][jb] = 0;
+						}
 					}
 				}
-				multiply_single_blocks(a_block, b_block, x_block);
+				//block multipication
+				for (int ib = 0; ib < BLOCKSIZE; ib++) {
+					for (int jb = 0; jb < BLOCKSIZE; jb++) {
+						for (int kb = 0; kb < BLOCKSIZE; kb++) {
+							x_block[ib][jb] += a_block[ib][kb] * b_block[kb][jb];
+						}
+					}
+				}
 			}
 			// copying the x_block into x
-			for (int ib = 0; ib < BLOCKSIZE; ib++){
-				for (int jb = 0; jb < BLOCKSIZE; jb++){
+			for (int ib = 0; ib < BLOCKSIZE && (i+ib) < x.rows; ib++){
+				for (int jb = 0; jb < BLOCKSIZE && (j+jb) < x.columns; jb++){
 					*(x.data + (i + ib) * x.columns + (j + jb)) = x_block[ib][jb];
 				}
 			}
@@ -99,14 +111,3 @@ void multiply_matrices(struct matrix a, struct matrix b, struct matrix x){
 	}
 }
 
-void multiply_single_blocks(double a_block[BLOCKSIZE][BLOCKSIZE],
-			    double b_block[BLOCKSIZE][BLOCKSIZE],
-			    double x_block[BLOCKSIZE][BLOCKSIZE]){
-	for (int i = 0; i < BLOCKSIZE; i++){
-		for (int j = 0; j < BLOCKSIZE; j++){
-			for (int k = 0; k < BLOCKSIZE; k++){
-				x_block[i][j] += a_block[i][k] * b_block[k][j];
-			}
-		}
-	}
-}

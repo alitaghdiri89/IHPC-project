@@ -2,7 +2,7 @@
 Group participants
 1) Aliakbar Taghdiri
 2) Bijaya Mandel
-3) Morteya Feizbakhsh
+3) Morteza Feizbakhsh
 4) Priyanka Mukeimpi Santhosh
 */
 
